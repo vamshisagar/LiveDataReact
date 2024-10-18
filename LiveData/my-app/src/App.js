@@ -7,23 +7,19 @@ function App() {
   const [table2Records, setTable2Records] = useState([]);
   const [message, setMessage] = useState("");
 
+  // State variables for incidents
+  const [incidentCounts, setIncidentCounts] = useState(null);
+
   useEffect(() => {
-    // Fetch initial data for both tables
+    // Fetch initial data for both tables and incidents
     fetchTable1Records();
     fetchTable2Records();
+    fetchIncidentCounts();
 
     // Set up SignalR connection
     const connection = new signalR.HubConnectionBuilder()
-      .withUrl("http://localhost:5223/dataHub", { withCredentials: true }) // SignalR hub URL
+      .withUrl("http://localhost:5223/dataHub", { withCredentials: true })
       .build();
-
-    // connection = new signalR.HubConnectionBuilder()
-    // .configureLogging(signalR.LogLevel.Debug)  // add this for diagnostic clues
-    // .withUrl("http://localhost:5223/dataHub", {
-    //   skipNegotiation: true,  // skipNegotiation as we specify WebSockets
-    //   transport: signalR.HttpTransportType.WebSockets  // force WebSocket transport
-    // })
-    // .build();
 
     connection.start().then(() => {
       console.log("Connected to SignalR hub!");
@@ -37,8 +33,13 @@ function App() {
       // Listen for updates for Table 2
       connection.on("ReceiveTable2Update", (updatedTable2Records) => {
         setMessage("Received updated records for Table 2");
-        console.log(updatedTable2Records);
         setTable2Records(updatedTable2Records);
+      });
+
+      // Listen for incident updates
+      connection.on("ReceiveIncidentUpdate", (updatedIncidents) => {
+        console.log(updatedIncidents);
+        setIncidentCounts(updatedIncidents);
       });
     });
 
@@ -55,6 +56,11 @@ function App() {
   const fetchTable2Records = async () => {
     const response = await axios.get("http://localhost:5223/api/Data/table2");
     setTable2Records(response.data);
+  };
+
+  const fetchIncidentCounts = async () => {
+    const response = await axios.get("http://localhost:5223/api/Data/incidents/counts");
+    setIncidentCounts(response.data); // Directly use the API response
   };
 
   return (
@@ -101,6 +107,22 @@ function App() {
           ))}
         </tbody>
       </table>
+
+      <h2>Incident Counts</h2>
+      {incidentCounts ? (
+        <div>
+          <h3>Counts by Severity</h3>
+          <ul>
+            {incidentCounts.severityCounts.map((item) => (
+              <li key={item.severity}>{item.severity}: {item.count}</li>
+            ))}
+          </ul>
+          <h3>Total Outages</h3>
+          <p>{incidentCounts.outageCount}</p>
+        </div>
+      ) : (
+        <p>Loading incident counts...</p>
+      )}
     </div>
   );
 }
